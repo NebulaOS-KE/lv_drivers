@@ -50,6 +50,8 @@ void fbdev_get_sizes(uint32_t *width, uint32_t *height, uint32_t *dpi);
  * @param yoffset vertical offset
  */
 void fbdev_set_offset(uint32_t xoffset, uint32_t yoffset);
+void fbdev_blank(void);
+void fbdev_unblank(void);
 
 
 /**********************

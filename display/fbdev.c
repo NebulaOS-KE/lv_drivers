@@ -268,6 +268,16 @@ void fbdev_set_offset(uint32_t xoffset, uint32_t yoffset) {
     vinfo.yoffset = yoffset;
 }
 
+void fbdev_blank(void) {
+    if(fbfd <= 0) return;
+    ioctl(fbfd, FBIOBLANK, FB_BLANK_POWERDOWN);
+}
+
+void fbdev_unblank(void) {
+    if(fbfd <= 0) return;
+    ioctl(fbfd, FBIOBLANK, FB_BLANK_UNBLANK);
+}
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/

@@ -20,9 +20,10 @@ commits:
 | `8326182` | `display/fbdev.c`, `display/fbdev.h` - adds `fbdev_blank()` and `fbdev_unblank()`, two `FBIOBLANK` wrappers | **No** - superseded, see below |
 | `0406ccb` | `indev/evdev.c` - accept any non-negative `ABS_MT_TRACKING_ID` as a press | **Yes** |
 
-NebulaScreen pins `0406ccb` as its `lv_drivers` submodule (NebulaScreen `36490ed`,
-`.gitmodules` plus the submodule entry). That is the tip of `guppyscreen-ke-next`, so the whole
-fork surface is those twelve-plus-five added lines.
+NebulaScreen pins `0406ccb` as its `lv_drivers` submodule - checked at `fd47cb6`, the screen
+NebulaOS 1.0.2 ships, and at `84db432`, the current tip of NebulaScreen's `main`: both the
+`.gitmodules` entry and the submodule object. That is the tip of `guppyscreen-ke-next`, so the
+whole fork surface is those twelve-plus-five added lines.
 
 ## `0406ccb` - the touch fix, which is live
 
@@ -38,8 +39,14 @@ Every contact after the first then produced no press at all - the touch simply d
 The fix treats `-1` as "lifted" and anything else as "pressed", which is what the kernel's
 multitouch protocol actually specifies.
 
-This one matters: `evdev_init()` and `evdev_read` are called from NebulaScreen's `main.cpp`, so
-the printer's touchscreen goes through this code on every tap.
+This one matters: `evdev_init()` and `evdev_read` are called from NebulaScreen's `main.cpp`
+(`hal_init`), so the printer's touchscreen goes through this code on every tap.
+
+One nuance, so the reader is not surprised by the source: NebulaScreen does not register
+`evdev_read` directly. It registers `evdev_read_smoothed`, which calls whichever reader is active
+- raw `evdev_read`, or `lv_tc_indev_drv_init(&indev_drv_1, evdev_read)` when touch calibration is
+on - and then eases the reported point with an exponential filter. The press/release state this
+fork decides is passed through untouched; only the coordinates are filtered.
 
 ## `8326182` - the framebuffer helpers, which are not
 
@@ -87,14 +94,36 @@ first place.
   is a maintenance fork of something upstream no longer develops separately. Do not expect to
   rebase onto an active branch.
 
+## Checked against NebulaOS 1.0.2 (2026-11-11)
+
+Nothing here moved for the release, and that is the point of the page: `master` is still
+`ea2e4cc`, `guppyscreen-ke-next` is still `0406ccb`, and the fork surface is still those two
+commits (12 added lines in `display/fbdev.c`/`.h`, 5 added and 1 removed in `indev/evdev.c`).
+
+What changed is which NebulaScreen pins it. NebulaOS 1.0.2 ships NebulaScreen `fd47cb6`
+(tag `v1.0.1`, `NEBULASCREEN_PIN` in firmware `3bdf3ff`), and NebulaScreen's `main` has since
+moved to `84db432`. **Both pin the same submodule commit, `0406ccb`** - so the shipped release
+and the tip of the consumer agree, and this page describes both.
+
+The three claims that would age badly were re-read at `fd47cb6` rather than assumed:
+
+- `evdev_init()` and `evdev_read` are still called from `src/main.cpp` (`hal_init`, lines
+  150-167), so every tap still goes through this fork's `indev/evdev.c`.
+- `src/nebulascreen_fb.cpp` / `.h` are still the framebuffer output - `main.cpp`'s `nsfb_flush`
+  is the LVGL `flush_cb`, and `fbdev_flush` is not used.
+- The *"never `fbdev_blank()`"* rule is still written where the display-sleep code is, in
+  `src/guppyscreen.cpp:269`: the panel cannot recover from `FB_BLANK_POWERDOWN`, so NebulaOS
+  switches the backlight off and the black overlay is what shows.
+
 ## Verification state
 
 | | |
 |---|---|
 | Fork surface | `master..guppyscreen-ke-next` = 2 commits, read at `0406ccb` |
 | Upstream base | `ea2e4cc`, unmodified on `master` |
-| Consumed by | NebulaScreen `36490ed`, submodule pinned at `0406ccb` |
-| `evdev` in use | **yes** - `evdev_init` / `evdev_read` in NebulaScreen `src/main.cpp` |
+| Consumed by | NebulaScreen `fd47cb6` (shipped by NebulaOS 1.0.2, firmware `3bdf3ff`) and `84db432` (tip of `main`) - both pin `0406ccb` |
+| `evdev` in use | **yes** - `evdev_init` / `evdev_read` in NebulaScreen `src/main.cpp`, wrapped by `evdev_read_smoothed` |
 | `fbdev` in use | **no** - only comments reference it; `src/nebulascreen_fb.*` replaced it |
+| Re-verified | 2026-11-11, against NebulaScreen `fd47cb6` and `84db432` |
 | Tests | none in this repository |
 | Hardware verification | **none** - no printer access. The touch and panel behaviour described here is read from source and from NebulaScreen's own comments, not observed |
